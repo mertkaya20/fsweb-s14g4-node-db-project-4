@@ -105,3 +105,10 @@ Aşağıdaki işleve sahip bir nesneyi dışa aktaran bir veri erişim dosyası 
   ]
 }
 ```
+
+
+### NextGen Testleri Çalıştırma
+
+- Proje dizinindeki `user.json` dosyasını bulun ve `user_id` alanını NextGen proje ekranında görünen kendi `user_id` değeriniz ile güncelleyin.
+- Projeyi tamamladıktan sonra sonucu NextGen'e göndermek için `npm run sendresults` komutunu kullanın.
+- Komut çalıştıktan sonra NextGen sayfasını refresh ederek skorunuzu kontrol edebilirsiniz.
