@@ -1,114 +1,266 @@
-# Node Veritabanı Projesi -4
+# 🍽️ Recipe Book API
 
-## Talimatlar
+A production-ready RESTful API for managing recipes, steps, and ingredients — built with **Node.js**, **Express**, **Knex.js**, and **SQLite3**. Designed around a normalized relational data model with a complex Many-to-Many relationship structure, delivering deeply nested JSON responses through multi-table SQL joins and JavaScript data transformation.
 
-### Görev 1: Proje Kurulumu
+---
 
-Projeyi forklayın, clonela'yın ve sık sık commitleyin.
+## 🚀 What This Project Does
 
-## Görev 2: MVP
+Given a recipe ID, the API returns a fully nested recipe object containing:
 
-Bir _yemek tarifi kitabı_ uygulaması için **veri modelini** tasarlayın ve modele dayalı bir **SQLite veritabanı** oluşturmak ve ona test için veri eklemek adına Knex migration ve seed işlevini kullanın.
-Ardından, id'sine göre bir tarif almak için bir **uç nokta(endpoint)** oluşturun.
-
-İstemci tarafından belirtilen sistem gereksinimleri şunlardır:
-
-- Tariflerin benzersiz olması gereken bir adı vardır (ör. "Spagetti Bolognese").
-- Tarifler sıralı bir adım listesi içerir (ör. "Fırını önceden ısıtın", "Kabakları kızartın").
-- Her adım bazı talimatlar içerir (örn. "Fırını önceden ısıtın") ve tek bir tarife aittir.
-- Adımlar herhangi bir sayıda bileşen içerebilir (sıfır, bir veya daha fazla).
-- Bir adım bir veya daha fazla bileşen içeriyorsa, her bileşen belirli bir sırada kullanılır.
-- Malzemeler farklı tariflerde, farklı miktarlarda kullanılabilir.
-
-#### Veri Modeli
-
-Ekiple beyin fırtınası yaptıktan sonra, bir tarifin **JSON temsilinin** aşağıdaki gibi _olabileceği_ önerildi:
+- Recipe metadata (name, creation date)
+- An ordered list of steps
+- Each step's ingredients with exact quantities
 
 ```json
 {
-  "tarif_id" : 1,
-  "tarif_adi": "Spagetti Bolonez",
-  "kayit_tarihi": "2021-01-01 08:23:19.120",
+  "tarif_id": 2,
+  "tarif_adi": "Lahmacun",
+  "kayit_tarihi": "2026-06-11 10:52:50",
   "adimlar": [
     {
-      "adim_id": 11,
+      "adim_id": 3,
       "adim_sirasi": 1,
-      "adim_talimati": "Büyük bir tencereyi orta ateşe koyun",
-      "icindekiler": []
-    },
-    {
-      "adim_id": 12,
-      "adim_sirasi": 2,
-      "adim_talimati": "1 yemek kaşığı zeytinyağı ekleyin",
+      "adim_talimati": "300gr kıymayı soğan ve baharatla karıştırın",
       "icindekiler": [
-        { "icindekiler_id": 27, "icindekiler_adi": "zeytinyağı", "miktar": 0.014 }
+        { "icindekiler_id": 1, "icindekiler_adi": "Kıyma", "miktar": 300 },
+        { "icindekiler_id": 2, "icindekiler_adi": "Soğan", "miktar": 100 }
       ]
-    },
+    }
   ]
 }
 ```
 
-Yukarıdaki JSON bir örnektir. SQL kullanarak birkaç tablodan veri sorgulamanın ve ardından verileri belirli bir formata sokmak için JavaScript kullanmanın sonucudur.
+---
 
-`{ "içindekiler_id": 27, "içindekiler_adı": "zeytinyağı", "miktar": 0,014 }` alanlarının hepsinin aynı tablodan gelme ihtimalinin düşük olduğunu unutmayın. Aksi takdirde, bir bileşen yalnızca sabit bir miktarda kullanılabilir!
+## 🛠️ Tech Stack
 
-Herhangi bir kod yazmadan önce, veri modelinde istenen tüm tabloları yazın ve tablolar arasındaki ilişkileri belirleyin.
+| Technology   | Purpose                                 |
+| ------------ | --------------------------------------- |
+| Node.js      | Runtime environment                     |
+| Express.js   | Web framework & routing                 |
+| SQLite3      | Relational database                     |
+| Knex.js      | Query builder, migrations & seeds       |
+| knex-cleaner | Safe database cleanup between seed runs |
+| dotenv       | Environment variable management         |
+| Nodemon      | Development auto-reload                 |
 
-**Tasarımınızı DÖRT tabloda tutmaya çalışın**. Üç tablo ile tüm gereksinimleri karşılamak zor olacak ve 5'ten fazlası muhtemelen gereğinden fazla olacaktır.
+---
 
-#### Proje Ana Yapısı
+## 🗄️ Database Design
 
-- "package.json" ve "knexfile.js" ile başlayan bir Express uygulamasını bir araya getirin. Gerekirse mevcut projeleri referans olarak kullanın.
+### Why 4 Tables?
 
-#### Migration ve Seed'ler
+The core challenge of this project was designing a normalized schema that avoids data redundancy while supporting flexible ingredient reuse across different recipes and steps.
 
-- Bu verileri modellemek için gerekli tüm tabloları oluşturan bir migration dosyası yazın
-- Tabloları test verileriyle doldurmak için seed dosyaları yazın. **İpucu**: Tariflerinizi basit tutun, aksi takdirde bu adım aşırı derecede zaman alabilir.
+The key insight: **an ingredient's quantity is not a property of the ingredient itself — it's a property of the relationship between a step and an ingredient.** This led to the junction table `adim_icindekiler`, which holds the `miktar` (quantity) field.
 
-#### Veri Erişimi (Model Functions)
+### Schema
 
-Aşağıdaki işleve sahip bir nesneyi dışa aktaran bir veri erişim dosyası yazın:
+```
+tarifler (recipes)
+    │
+    │ ONE-TO-MANY
+    ▼
+adimlar (steps)
+    │
+    │ MANY-TO-MANY (via junction table)
+    ▼
+adim_icindekiler ◄──── icindekiler (ingredients)
+  (junction table)
+```
 
-- `idyeGoreTarifGetir(tarif_id)`
-  - Yukarıdaki **Veri Modeli**'nde gösterilene benzer bir tarifin temsilini çözmelidir.
-  - İşlev, Knex'i kullanarak birkaç tablodan bilgi çekecek ve ardından döngüler, nesneler, dizi yöntemleri vb. kullanarak bir yanıt nesnesi oluşturacaktır.
-  - Bunu çözmenin birçok yolu var, ancak performans açısından veritabanına ne kadar az ziyaret olursa o kadar iyi!
+### Tables
 
-#### Uç nokta
+#### `tarifler` — Recipes
 
-`idyeGoreTarifGetir(tarif_id)` işlevini kullanarak kimliğine göre bir tarif getirmek için bir uç nokta yazın.
+| Column       | Type         | Constraints                 |
+| ------------ | ------------ | --------------------------- |
+| id           | integer      | PRIMARY KEY, AUTO INCREMENT |
+| tarif_adi    | varchar(128) | NOT NULL, UNIQUE            |
+| kayit_tarihi | timestamp    | DEFAULT now()               |
 
-### Görev 3: Esnek Görevler
+#### `adimlar` — Steps
 
-- [ ] Veritabanında zaten var olan malzemeleri kullanarak yeni bir tarif oluşturmak için bir uç noktası yazın.
-- [ ] React'te, veritabanında zaten var olan malzemeleri seçerek yeni bir tarif oluşturmaya izin veren bir form oluşturun.
-- [ ] SQL ve Knex'te **transitions**'ı araştırın: Bir tarif yayınlamak, birkaç tabloya ekleme yapmayı içerir ve eklemelerden herhangi birinin başarısız olması durumunda işlemin tamamen iptal olması veya geri alınması gerekir.
+| Column        | Type         | Constraints                 |
+| ------------- | ------------ | --------------------------- |
+| id            | integer      | PRIMARY KEY, AUTO INCREMENT |
+| adim_sirasi   | integer      | NOT NULL                    |
+| adim_talimati | varchar(255) | NOT NULL                    |
+| tarif_id      | integer      | NOT NULL, FK → tarifler.id  |
 
-**Sunucuya gönderilen** temsili aşağıdaki gibi görünebilir:
+#### `icindekiler` — Ingredients
+
+| Column          | Type         | Constraints                 |
+| --------------- | ------------ | --------------------------- |
+| id              | integer      | PRIMARY KEY, AUTO INCREMENT |
+| icindekiler_adi | varchar(255) | NOT NULL                    |
+
+#### `adim_icindekiler` — Step-Ingredient Junction
+
+| Column         | Type    | Constraints                           |
+| -------------- | ------- | ------------------------------------- |
+| adim_id        | integer | NOT NULL, FK → adimlar.id             |
+| icindekiler_id | integer | NOT NULL, FK → icindekiler.id         |
+| miktar         | float   | NOT NULL                              |
+| —              | —       | PRIMARY KEY (adim_id, icindekiler_id) |
+
+> The junction table uses a **composite primary key** on `(adim_id, icindekiler_id)`, preventing the same ingredient from being added to the same step twice.
+
+---
+
+## 📡 API Endpoints
+
+| Method | Endpoint                  | Description                                        |
+| ------ | ------------------------- | -------------------------------------------------- |
+| GET    | `/api/tarifler/:tarif_id` | Get a full recipe by ID with steps and ingredients |
+
+### Response Example
+
+`GET /api/tarifler/1`
 
 ```json
 {
-  "tarif_id": "Spagetti Bolonez",
-  "adımlar": [
+  "tarif_id": 1,
+  "tarif_adi": "Adana Kebap",
+  "kayit_tarihi": "2026-06-11 10:52:50",
+  "adimlar": [
     {
+      "adim_id": 1,
       "adim_sirasi": 1,
-      "adim_talimati": "Büyük bir tencereyi orta ateşe koyun",
-    },
-    {
-      "adim_sirasi": 2,
-      "adim_talimati": "Yumurta ve jambonu karıştırın",
+      "adim_talimati": "500gr kıymayı yoğurun",
       "icindekiler": [
-        { "icindekiler_id": 27, "miktar": 2 },
-        { "icindekiler_id": 48, "miktar": 0.1 }
+        { "icindekiler_id": 1, "icindekiler_adi": "Kıyma", "miktar": 500 },
+        { "icindekiler_id": 7, "icindekiler_adi": "Baharat", "miktar": 10 }
       ]
     },
+    {
+      "adim_id": 2,
+      "adim_sirasi": 2,
+      "adim_talimati": "Şişe geçirip ızgaraya koyun",
+      "icindekiler": []
+    }
   ]
 }
 ```
 
+---
 
-### NextGen Testleri Çalıştırma
+## ⚙️ Setup & Installation
 
-- Proje dizinindeki `user.json` dosyasını bulun ve `user_id` alanını NextGen proje ekranında görünen kendi `user_id` değeriniz ile güncelleyin.
-- Projeyi tamamladıktan sonra sonucu NextGen'e göndermek için `npm run sendresults` komutunu kullanın.
-- Komut çalıştıktan sonra NextGen sayfasını refresh ederek skorunuzu kontrol edebilirsiniz.
+### Prerequisites
+
+- Node.js v18+
+- npm
+
+### Steps
+
+**1. Clone the repository**
+
+```bash
+git clone https://github.com/mertkaya20/fsweb-s14g4-node-db-project-4.git
+cd fsweb-s14g4-node-db-project-4
+```
+
+**2. Install dependencies**
+
+```bash
+npm install
+```
+
+**3. Create environment file**
+
+```bash
+# Create a .env file in the root directory
+PORT=5000
+NODE_ENV=development
+```
+
+**4. Run database migrations**
+
+```bash
+knex migrate:latest
+```
+
+**5. Seed the database**
+
+```bash
+knex seed:run
+```
+
+**6. Start the development server**
+
+```bash
+npm run dev
+```
+
+The API will be running at `http://localhost:5000`
+
+---
+
+## 🏗️ Architecture & Key Decisions
+
+### Feature-based Folder Structure
+
+All files related to a resource (router, model, middleware) live in the same folder under `api/`. This makes the codebase easy to navigate and scale.
+
+### Single Query, JavaScript Transformation
+
+Rather than making multiple database round-trips, the `idyeGoreTarifGetir` function performs a **single 4-table JOIN** query and transforms the flat result set into a nested object using `forEach` and `Array.find()`. This is both performant and readable.
+
+### LEFT JOIN for Optional Ingredients
+
+Steps without ingredients are still returned — with an empty `icindekiler: []` array. This is achieved by using `LEFT JOIN` on the junction table, ensuring no data is silently dropped.
+
+### SQLite Foreign Key Enforcement
+
+SQLite does not enforce foreign key constraints by default. The `knexfile.js` uses the `pool.afterCreate` hook to run `PRAGMA foreign_keys = ON` on every connection, ensuring `ON DELETE CASCADE` works correctly.
+
+### Composite Primary Key on Junction Table
+
+The `adim_icindekiler` table uses a composite primary key `(adim_id, icindekiler_id)` instead of a surrogate `id` column — a deliberate design choice since the table has no independent identity beyond its relationship between two entities.
+
+---
+
+## 📁 Project Structure
+
+```
+fsweb-s14g4-node-db-project-4/
+├── api/
+│   ├── tarifler/
+│   │   ├── tarifler-router.js      # Express router
+│   │   ├── tarifler-model.js       # Database queries & data transformation
+│   │   └── tarifler-middleware.js  # Request validation
+│   └── server.js                   # Express app configuration
+├── data/
+│   ├── migrations/                 # Database schema
+│   ├── seeds/                      # Test data
+│   └── db-config.js                # Knex connection
+├── .env                            # Environment variables (not committed)
+├── .gitignore
+├── index.js                        # Server entry point
+├── knexfile.js                     # Knex configuration
+└── package.json
+```
+
+---
+
+## 🌱 Environment Variables
+
+| Variable   | Description                          | Default       |
+| ---------- | ------------------------------------ | ------------- |
+| `PORT`     | Port the server listens on           | `5000`        |
+| `NODE_ENV` | Environment (development/production) | `development` |
+
+---
+
+## 📬 Contact
+
+**Mert Kaya**
+
+[![GitHub](https://img.shields.io/badge/GitHub-mertkaya20-181717?style=flat&logo=github)](https://github.com/mertkaya20)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-merttkaya20-0A66C2?style=flat&logo=linkedin)](https://www.linkedin.com/in/merttkaya20/)
+
+---
+
+_Built as part of a Full Stack Bootcamp — Workintech_
