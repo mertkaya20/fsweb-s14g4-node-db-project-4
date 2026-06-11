@@ -7,5 +7,14 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Workintech/node-db4-project.git"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "knex": "^3.2.10",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
